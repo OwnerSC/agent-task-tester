@@ -1,229 +1,686 @@
 <!DOCTYPE html>
 <html lang="pl">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Agent Task Tester PRO</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Agent Task Tester PRO - narzędzie do testowania i oceny zadań agentów">
+    <meta name="keywords" content="agent, tester, tasks, evaluation">
+    <meta name="author" content="Twój Nick">
+    
+    <!-- Open Graph dla GitHub/social media -->
+    <meta property="og:title" content="Agent Task Tester PRO">
+    <meta property="og:description" content="Narzędzie do testowania i oceny zadań agentów">
+    <meta property="og:type" content="website">
+    
+    <title>Agent Task Tester PRO</title>
+    
+    <!-- CDN zamiast lokalnych plików -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    
+    <style>
+        /* Reset i podstawy */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e1e2f, #2b1f1f);
+            color: #ffffff;
+            min-height: 100vh;
+            position: relative;
+        }
 
-<style>
-body {
-    margin: 0;
-    font-family: Arial, sans-serif;
-    background: linear-gradient(135deg, #1e1e2f, #2b1f1f);
-    color: white;
-}
+        /* Tło z overlay */
+        body::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            background: url('https://images.unsplash.com/photo-1506015391300-4802dc74de2e?w=1920&q=80') center/cover no-repeat;
+            opacity: 0.08; /* Zmniejszona przezroczystość dla lepszej czytelności */
+            z-index: -1;
+            pointer-events: none;
+        }
 
-body::before {
-    content: "";
-    position: fixed;
-    inset: 0;
-    background: url('https://images.unsplash.com/photo-1506015391300-4802dc74de2e') center/cover no-repeat;
-    opacity: 0.12;
-    z-index: -1;
-}
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+        }
 
-.container {
-    max-width: 1000px;
-    margin: auto;
-    padding: 20px;
-}
+        /* Nagłówek */
+        h1 {
+            text-align: center;
+            margin-bottom: 25px;
+            font-size: 2rem;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
 
-.card {
-    background: rgba(30,30,40,0.92);
-    padding: 15px;
-    border-radius: 12px;
-    margin-bottom: 15px;
-}
+        h2 {
+            font-size: 1.3rem;
+            margin-bottom: 15px;
+            color: #ff9800;
+        }
 
-button {
-    padding: 10px 14px;
-    margin: 5px;
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
-    font-weight: bold;
-}
+        h3 {
+            font-size: 1.1rem;
+            margin-bottom: 12px;
+            border-bottom: 2px solid #444;
+            padding-bottom: 8px;
+        }
 
-.ok { background: #4caf50; color: white; }
-.bad { background: #f44336; color: white; }
-.next { background: #ff9800; }
-.danger { background: #b71c1c; color: white; }
+        /* Karty */
+        .card {
+            background: rgba(30, 30, 40, 0.95);
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        }
 
-table {
-    width: 100%;
-    border-collapse: collapse;
-}
+        /* Przyciski */
+        .btn-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 15px;
+        }
 
-th, td {
-    padding: 8px;
-    border-bottom: 1px solid #444;
-    text-align: center;
-}
-</style>
+        button {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        .btn-ok { 
+            background: #4caf50; 
+            color: white; 
+        }
+        .btn-ok:hover { background: #45a049; }
+
+        .btn-bad { 
+            background: #f44336; 
+            color: white; 
+        }
+        .btn-bad:hover { background: #da190b; }
+
+        .btn-next { 
+            background: #ff9800; 
+            color: white;
+        }
+        .btn-next:hover { background: #e68900; }
+
+        .btn-danger { 
+            background: #b71c1c; 
+            color: white; 
+        }
+        .btn-danger:hover { background: #d32f2f; }
+
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 0.85rem;
+        }
+
+        /* Statystyki */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .stat-item {
+            background: rgba(255,255,255,0.05);
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #ff9800;
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            color: #aaa;
+            margin-top: 5px;
+        }
+
+        /* Tabela */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        th, td {
+            padding: 12px;
+            border-bottom: 1px solid #444;
+            text-align: center;
+        }
+
+        th {
+            background: rgba(255,255,255,0.05);
+            font-weight: bold;
+            color: #ff9800;
+        }
+
+        tr:hover {
+            background: rgba(255,255,255,0.03);
+        }
+
+        /* Canvas dla wykresu */
+        canvas {
+            max-height: 300px;
+        }
+
+        /* Responsywność */
+        @media (max-width: 600px) {
+            .container {
+                padding: 10px;
+            }
+            
+            h1 {
+                font-size: 1.5rem;
+            }
+            
+            .btn-group {
+                flex-direction: column;
+            }
+            
+            button {
+                width: 100%;
+            }
+            
+            th, td {
+                padding: 8px;
+                font-size: 0.9rem;
+            }
+        }
+
+        /* Pasek postępu */
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 4px;
+            margin-top: 10px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4caf50, #ff9800);
+            transition: width 0.5s ease;
+            border-radius: 4px;
+        }
+
+        /* Powiadomienia */
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            border-radius: 8px;
+            color: white;
+            font-weight: bold;
+            z-index: 1000;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        .notification.success { background: #4caf50; }
+        .notification.error { background: #f44336; }
+    </style>
 </head>
 
 <body>
-<div class="container">
+    <div class="container">
+        <h1>🤖 Agent Task Tester PRO</h1>
 
-<h1>Agent Task Tester PRO</h1>
+        <!-- Sekcja pytania -->
+        <div class="card">
+            <h2 id="question">Ładowanie...</h2>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressBar" style="width: 0%"></div>
+            </div>
+            <div class="btn-group">
+                <button class="btn-ok" onclick="mark('correct')" aria-label="Oznacz jako poprawne">
+                    ✅ OK / Poprawne
+                </button>
+                <button class="btn-bad" onclick="mark('incorrect')" aria-label="Oznacz jako niepoprawne">
+                    ❌ BAD / Niepoprawne
+                </button>
+                <button class="btn-next" onclick="nextQuestion()" aria-label="Następne pytanie">
+                    ⏭️ Następne
+                </button>
+            </div>
+        </div>
 
-<div class="card">
-    <h2 id="question"></h2>
+        <!-- Statystyki -->
+        <div class="card">
+            <h3>📊 Statystyki</h3>
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <div class="stat-value" id="c">0</div>
+                    <div class="stat-label">Poprawne</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="i">0</div>
+                    <div class="stat-label">Niepoprawne</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="a">0%</div>
+                    <div class="stat-label">Dokładność</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="l">1</div>
+                    <div class="stat-label">Poziom</div>
+                </div>
+            </div>
+        </div>
 
-    <button class="ok" onclick="mark('correct')">OK / CORRECT</button>
-    <button class="bad" onclick="mark('incorrect')">BAD / INCORRECT</button>
-    <button class="next" onclick="nextQuestion()">NEXT</button>
-</div>
+        <!-- Wykres -->
+        <div class="card">
+            <h3>📈 Wykres</h3>
+            <canvas id="chart1"></canvas>
+        </div>
 
-<div class="card">
-    <h3>Stats</h3>
-    <p>Correct: <span id="c"></span></p>
-    <p>Incorrect: <span id="i"></span></p>
-    <p>Accuracy: <span id="a"></span>%</p>
-    <p>Level: <span id="l"></span></p>
-</div>
+        <!-- Historia -->
+        <div class="card">
+            <h3>📝 Historia</h3>
+            <button class="btn-danger" onclick="clearAll()" aria-label="Usuń wszystkie dane">
+                🗑️ Usuń wszystko
+            </button>
+            <div style="overflow-x: auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Poprawne</th>
+                            <th>Niepoprawne</th>
+                            <th>Dokładność</th>
+                            <th>Usuń</th>
+                        </tr>
+                    </thead>
+                    <tbody id="history"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
 
-<div class="card">
-    <h3>Wykres</h3>
-    <canvas id="chart1"></canvas>
-</div>
+    <script>
+        // ============================================
+        // KONFIGURACJA
+        // ============================================
+        const CONFIG = {
+            questions: [
+                "Czy system działa poprawnie?",
+                "Czy odpowiedź jest logiczna?",
+                "Czy wynik się zgadza?",
+                "Czy UI działa stabilnie?",
+                "Czy kod jest czytelny?",
+                "Czy wydajność jest zadowalająca?"
+            ],
+            storageKey: 'agent_tester_data',
+            maxHistoryItems: 50 // Limit wpisów w historii
+        };
 
-<div class="card">
-    <h3>Historia</h3>
-    <button class="danger" onclick="clearAll()">USUŃ WSZYSTKO</button>
-    <table>
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>Correct</th>
-                <th>Incorrect</th>
-                <th>%</th>
-                <th>Delete</th>
-            </tr>
-        </thead>
-        <tbody id="history"></tbody>
-    </table>
-</div>
+        // ============================================
+        // STAN APLIKACJI
+        // ============================================
+        let qIndex = 0;
+        
+        // Bezpieczne parsowanie danych z localStorage
+        let data = loadData();
 
-</div>
+        // ============================================
+        // FUNKCJE POMOCNICZE
+        // ============================================
 
-<script>
-const questions = [
-    "Czy system działa poprawnie?",
-    "Czy odpowiedź jest logiczna?",
-    "Czy wynik się zgadza?",
-    "Czy UI działa stabilnie?"
-];
-
-let qIndex = 0;
-
-let data = JSON.parse(localStorage.getItem("data")) || {
-    correct: 0,
-    incorrect: 0,
-    history: []
-};
-
-document.getElementById("question").innerText = questions[qIndex];
-
-function save() {
-    localStorage.setItem("data", JSON.stringify(data));
-}
-
-function accuracy() {
-    let t = data.correct + data.incorrect;
-    return t === 0 ? 0 : Math.round((data.correct / t) * 100);
-}
-
-function level() {
-    return Math.floor((data.correct + data.incorrect) / 5) + 1;
-}
-
-function mark(type) {
-    if (type === "correct") data.correct++;
-    if (type === "incorrect") data.incorrect++;
-
-    save();
-    update();
-}
-
-function nextQuestion() {
-    qIndex = (qIndex + 1) % questions.length;
-    document.getElementById("question").innerText = questions[qIndex];
-
-    data.history.push({
-        id: Date.now(),
-        correct: data.correct,
-        incorrect: data.incorrect,
-        acc: accuracy()
-    });
-
-    save();
-    update();
-}
-
-function deleteItem(id) {
-    data.history = data.history.filter(x => x.id !== id);
-    save();
-    update();
-}
-
-function clearAll() {
-    data = { correct: 0, incorrect: 0, history: [] };
-    save();
-    update();
-}
-
-let chart;
-
-function updateChart() {
-    if (chart) chart.destroy();
-
-    chart = new Chart(document.getElementById("chart1"), {
-        type: "bar",
-        data: {
-            labels: ["Correct", "Incorrect"],
-            datasets: [{
-                data: [data.correct, data.incorrect],
-                backgroundColor: ["#4caf50", "#f44336"]
-            }]
+        /**
+         * Ładuje dane z localStorage z obsługą błędów
+         */
+        function loadData() {
+            try {
+                const stored = localStorage.getItem(CONFIG.storageKey);
+                if (stored) {
+                    const parsed = JSON.parse(stored);
+                    // Walidacja struktury danych
+                    if (validateData(parsed)) {
+                        return parsed;
+                    }
+                }
+            } catch (e) {
+                console.error('Błąd ładowania danych:', e);
+                showNotification('Błąd ładowania danych!', 'error');
+            }
+            return createDefaultData();
         }
-    });
-}
 
-function updateTable() {
-    let html = "";
+        /**
+         * Tworzy domyślną strukturę danych
+         */
+        function createDefaultData() {
+            return {
+                correct: 0,
+                incorrect: 0,
+                history: [],
+                version: '1.0' // Dla przyszłych migracji
+            };
+        }
 
-    data.history.forEach(h => {
-        html += `
-        <tr>
-            <td>${h.id}</td>
-            <td>${h.correct}</td>
-            <td>${h.incorrect}</td>
-            <td>${h.acc}%</td>
-            <td><button class="danger" onclick="deleteItem(${h.id})">X</button></td>
-        </tr>`;
-    });
+        /**
+         * Waliduje strukturę danych
+         */
+        function validateData(data) {
+            return data && 
+                   typeof data.correct === 'number' &&
+                   typeof data.incorrect === 'number' &&
+                   Array.isArray(data.history);
+        }
 
-    document.getElementById("history").innerHTML = html;
-}
+        /**
+         * Zapisuje dane do localStorage
+         */
+        function saveData() {
+            try {
+                localStorage.setItem(CONFIG.storageKey, JSON.stringify(data));
+            } catch (e) {
+                console.error('Błąd zapisu:', e);
+                showNotification('Błąd zapisu danych!', 'error');
+            }
+        }
 
-function updateStats() {
-    document.getElementById("c").innerText = data.correct;
-    document.getElementById("i").innerText = data.incorrect;
-    document.getElementById("a").innerText = accuracy();
-    document.getElementById("l").innerText = level();
-}
+        /**
+         * Pokazuje powiadomienie
+         */
+        function showNotification(message, type = 'success') {
+            // Usuń stare powiadomienia
+            const old = document.querySelector('.notification');
+            if (old) old.remove();
 
-function update() {
-    updateStats();
-    updateTable();
-    updateChart();
-}
+            const div = document.createElement('div');
+            div.className = `notification ${type}`;
+            div.textContent = message;
+            document.body.appendChild(div);
 
-update();
-</script>
+            setTimeout(() => {
+                div.style.animation = 'slideIn 0.3s ease reverse';
+                setTimeout(() => div.remove(), 300);
+            }, 2000);
+        }
 
+        /**
+         * Eskapuje HTML (zabezpieczenie XSS)
+         */
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // ============================================
+        // LOGIKA BIZNESOWA
+        // ============================================
+
+        /**
+         * Oblicza dokładność
+         */
+        function calculateAccuracy() {
+            const total = data.correct + data.incorrect;
+            return total === 0 ? 0 : Math.round((data.correct / total) * 100);
+        }
+
+        /**
+         * Oblicza poziom
+         */
+        function calculateLevel() {
+            return Math.floor((data.correct + data.incorrect) / 5) + 1;
+        }
+
+        /**
+         * Aktualizuje pasek postępu
+         */
+        function updateProgress() {
+            const progress = ((qIndex + 1) / CONFIG.questions.length) * 100;
+            document.getElementById('progressBar').style.width = `${progress}%`;
+        }
+
+        /**
+         * Oznacza odpowiedź
+         */
+        function mark(type) {
+            if (type === 'correct') {
+                data.correct++;
+                showNotification('✅ Zapisano jako poprawne!');
+            } else if (type === 'incorrect') {
+                data.incorrect++;
+                showNotification('❌ Zapisano jako niepoprawne!', 'error');
+            }
+            
+            saveData();
+            updateAll();
+        }
+
+        /**
+         * Przechodzi do następnego pytania
+         */
+        function nextQuestion() {
+            // Zapisz aktualny stan do historii
+            data.history.push({
+                id: Date.now(),
+                correct: data.correct,
+                incorrect: data.incorrect,
+                acc: calculateAccuracy(),
+                timestamp: new Date().toISOString()
+            });
+
+            // Limit historii
+            if (data.history.length > CONFIG.maxHistoryItems) {
+                data.history = data.history.slice(-CONFIG.maxHistoryItems);
+            }
+
+            // Następne pytanie
+            qIndex = (qIndex + 1) % CONFIG.questions.length;
+            document.getElementById('question').textContent = CONFIG.questions[qIndex];
+            
+            updateProgress();
+            saveData();
+            updateAll();
+            showNotification('⏭️ Przejście do następnego pytania');
+        }
+
+        /**
+         * Usuwa wpis z historii
+         */
+        function deleteItem(id) {
+            if (!confirm('Czy na pewno chcesz usunąć ten wpis?')) return;
+            
+            data.history = data.history.filter(item => item.id !== id);
+            saveData();
+            updateAll();
+            showNotification('🗑️ Wpis usunięty');
+        }
+
+        /**
+         * Czyści wszystkie dane
+         */
+        function clearAll() {
+            if (!confirm('⚠️ Czy na pewno chcesz usunąć WSZYSTKIE dane?')) return;
+            
+            data = createDefaultData();
+            qIndex = 0;
+            document.getElementById('question').textContent = CONFIG.questions[0];
+            
+            saveData();
+            updateAll();
+            updateProgress();
+            showNotification('🗑️ Wszystkie dane usunięte!', 'error');
+        }
+
+        // ============================================
+        // WIZUALIZACJA
+        // ============================================
+
+        let chart = null;
+
+        /**
+         * Aktualizuje wykres
+         */
+        function updateChart() {
+            const ctx = document.getElementById('chart1');
+            
+            if (chart) {
+                chart.destroy();
+            }
+
+            chart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Poprawne', 'Niepoprawne'],
+                    datasets: [{
+                        label: 'Wyniki',
+                        data: [data.correct, data.incorrect],
+                        backgroundColor: ['#4caf50', '#f44336'],
+                        borderColor: ['#45a049', '#da190b'],
+                        borderWidth: 2,
+                        borderRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const total = data.correct + data.incorrect;
+                                    const percentage = total > 0 ? 
+                                        Math.round((context.raw / total) * 100) : 0;
+                                    return `${context.raw} (${percentage}%)`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                color: '#aaa'
+                            },
+                            grid: {
+                                color: 'rgba(255,255,255,0.1)'
+                            }
+                        },
+                        x: {
+                            ticks: {
+                                color: '#fff'
+                            },
+                            grid: {
+                                display: false
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        /**
+         * Aktualizuje tabelę historii
+         */
+        function updateTable() {
+            const tbody = document.getElementById('history');
+            
+            if (data.history.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="5" style="color: #888; padding: 20px;">
+                            Brak historii. Kliknij "Następne" aby rozpocząć.
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = data.history.slice().reverse().map(h => `
+                <tr>
+                    <td>${escapeHtml(String(h.id))}</td>
+                    <td>${h.correct}</td>
+                    <td>${h.incorrect}</td>
+                    <td style="color: ${h.acc >= 70 ? '#4caf50' : h.acc >= 40 ? '#ff9800' : '#f44336'}">
+                        ${h.acc}%
+                    </td>
+                    <td>
+                        <button class="btn-danger btn-small" onclick="deleteItem(${h.id})" aria-label="Usuń wpis">
+                            🗑️
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        /**
+         * Aktualizuje statystyki
+         */
+        function updateStats() {
+            document.getElementById('c').textContent = data.correct;
+            document.getElementById('i').textContent = data.incorrect;
+            document.getElementById('a').textContent = calculateAccuracy() + '%';
+            document.getElementById('l').textContent = calculateLevel();
+        }
+
+        /**
+         * Główna funkcja aktualizacji
+         */
+        function updateAll() {
+            updateStats();
+            updateTable();
+            updateChart();
+        }
+
+        // ============================================
+        // INICJALIZACJA
+        // ============================================
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // Ustaw pierwsze pytanie
+            document.getElementById('question').textContent = CONFIG.questions[qIndex];
+            updateProgress();
+            updateAll();
+        });
+
+        // Eksport funkcji globalnych (dla onclick w HTML)
+        window.mark = mark;
+        window.nextQuestion = nextQuestion;
+        window.deleteItem = deleteItem;
+        window.clearAll = clearAll;
+    </script>
 </body>
 </html>
