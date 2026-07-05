@@ -1,84 +1,247 @@
-function render(){
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agent Dashboard PRO</title>
 
-let search = document.getElementById("search").value.toLowerCase();
+<style>
+body{
+    font-family:Segoe UI;
+    margin:20px;
+    background:#f4f7f6;
+}
+
+button,input,select{
+    padding:8px;
+    margin:5px;
+}
+
+table{
+    width:100%;
+    border-collapse:collapse;
+    margin-top:15px;
+    background:white;
+}
+
+th,td{
+    border:1px solid #ddd;
+    padding:10px;
+    text-align:left;
+}
+
+th{
+    background:#2c3e50;
+    color:white;
+}
+
+.correct{color:green;font-weight:bold}
+.incorrect{color:red;font-weight:bold}
+
+.card{
+    background:white;
+    padding:10px;
+    margin-top:10px;
+}
+</style>
+</head>
+
+<body>
+
+<h2>Agent Dashboard</h2>
+
+<button onclick="viewMode='agent';render()">Agent View</button>
+<button onclick="viewMode='test';render()">Test View</button>
+<button onclick="viewMode='matrix';render()">Matrix View</button>
+
+<br>
+
+<input id="agent" placeholder="Agent">
+<input id="task" placeholder="Task">
+<input id="testNr" placeholder="Test Nr">
+<select id="status">
+<option>Correct</option>
+<option>Incorrect</option>
+</select>
+
+<button onclick="addTask()">Add</button>
+
+<input id="search" oninput="render()" placeholder="Search">
+
+<table>
+<thead>
+<tr id="header"></tr>
+</thead>
+<tbody id="table"></tbody>
+</table>
+
+<script>
+
+let tasks = JSON.parse(localStorage.getItem("tasks")) || [];
+let viewMode = "agent";
+
+function save(){
+localStorage.setItem("tasks",JSON.stringify(tasks));
+}
+
+function addTask(){
+tasks.push({
+id:Date.now(),
+agent:agent.value,
+task:task.value,
+test:testNr.value || "1",
+status:status.value
+});
+
+save();
+render();
+}
+
+function toggle(id){
+let el = document.getElementById(id);
+if(el) el.style.display = el.style.display==="none"?"table-row":"none";
+}
+
+function render(){
 
 let data = [...tasks];
 
-if(search){
-    data = data.filter(t =>
-        t.agent.toLowerCase().includes(search) ||
-        t.task.toLowerCase().includes(search)
-    );
+let s = search.value.toLowerCase();
+if(s){
+data = data.filter(t =>
+t.agent.toLowerCase().includes(s) ||
+t.task.toLowerCase().includes(s)
+);
 }
 
-// GROUP BY AGENT
-let grouped = {};
+let html = "";
+let header = "";
 
-data.forEach(t => {
-    if(!grouped[t.agent]){
-        grouped[t.agent] = {
-            agent: t.agent,
-            tasks: [],
-            correct: 0,
-            incorrect: 0
-        };
-    }
 
-    grouped[t.agent].tasks.push(t);
+// ================= AGENT VIEW =================
+if(viewMode==="agent"){
 
-    if(t.status === "Correct") grouped[t.agent].correct++;
-    else grouped[t.agent].incorrect++;
+header = `
+<th>Agent</th><th>Total</th><th>OK</th><th>Bad</th><th>%</th>
+`;
+
+let g = {};
+
+data.forEach(t=>{
+if(!g[t.agent]) g[t.agent]={tasks:[],ok:0,bad:0};
+g[t.agent].tasks.push(t);
+t.status==="Correct"?g[t.agent].ok++:g[t.agent].bad++;
 });
 
-// SORT ranking (best agents first)
-let agents = Object.values(grouped).sort((a,b) =>
-    (b.correct / (b.correct + b.incorrect)) -
-    (a.correct / (a.correct + a.incorrect))
-);
+Object.keys(g).forEach(a=>{
+let total = g[a].ok+g[a].bad;
+let rate = Math.round(g[a].ok/total*100)||0;
 
-let html = "";
-
-agents.forEach((g, index) => {
-
-let total = g.correct + g.incorrect;
-let rate = total ? Math.round((g.correct / total) * 100) : 0;
-
-html += `
-<tr onclick="toggle('${g.agent}')"
-    style="cursor:pointer;background:${rate>70?'#e8f8e8':rate<40?'#fdeaea':''}">
-<td><b>#${index+1} ${g.agent}</b></td>
-<td>${total}</td>
-<td style="color:green">${g.correct}</td>
-<td style="color:red">${g.incorrect}</td>
-<td><b>${rate}%</b></td>
+html+=`
+<tr onclick="toggle('a-${a}')">
+<td>${a}</td><td>${total}</td>
+<td style="color:green">${g[a].ok}</td>
+<td style="color:red">${g[a].bad}</td>
+<td>${rate}%</td>
 </tr>
 
-<tr id="row-${g.agent}" style="display:none">
+<tr id="a-${a}" style="display:none">
 <td colspan="5">
 `;
 
-g.tasks.forEach(t => {
-html += `
-<div style="padding:5px;border-bottom:1px solid #eee">
-<span class="${t.status==='Correct'?'correct':'incorrect'}">
-${t.status}
-</span>
- - ${t.task}
-</div>
+g[a].tasks.forEach(t=>{
+html+=`<div>${t.test} - <span class="${t.status==='Correct'?'correct':'incorrect'}">${t.status}</span> ${t.task}</div>`;
+});
+
+html+=`</td></tr>`;
+});
+}
+
+
+// ================= TEST VIEW =================
+if(viewMode==="test"){
+
+header = `<th>Test</th><th>Total</th><th>OK</th><th>Bad</th><th>%</th>`;
+
+let g={};
+
+data.forEach(t=>{
+if(!g[t.test]) g[t.test]={tasks:[],ok:0,bad:0};
+g[t.test].tasks.push(t);
+t.status==="Correct"?g[t.test].ok++:g[t.test].bad++;
+});
+
+Object.keys(g).forEach(t=>{
+let total=g[t].ok+g[t].bad;
+let rate=Math.round(g[t].ok/total*100)||0;
+
+html+=`
+<tr onclick="toggle('t-${t}')">
+<td>${t}</td><td>${total}</td>
+<td style="color:green">${g[t].ok}</td>
+<td style="color:red">${g[t].bad}</td>
+<td>${rate}%</td>
+</tr>
+
+<tr id="t-${t}" style="display:none">
+<td colspan="5">
 `;
+
+g[t].tasks.forEach(x=>{
+html+=`<div>${x.agent} - ${x.task}</div>`;
 });
 
-html += `</td></tr>`;
+html+=`</td></tr>`;
+});
+}
+
+
+// ================= MATRIX VIEW =================
+if(viewMode==="matrix"){
+
+let m={};
+
+data.forEach(t=>{
+if(!m[t.agent]) m[t.agent]={};
+if(!m[t.agent][t.test]) m[t.agent][t.test]={ok:0,total:0};
+
+m[t.agent][t.test].total++;
+if(t.status==="Correct") m[t.agent][t.test].ok++;
 });
 
-document.getElementById("table").innerHTML = html;
+let tests=[...new Set(data.map(t=>t.test))];
 
-// stats
-document.getElementById("total").innerText = tasks.length;
+header=`<th>Agent</th>`+tests.map(t=>`<th>Test ${t}</th>`).join("");
 
-let correct = tasks.filter(t=>t.status==="Correct").length;
-document.getElementById("correct").innerText = correct;
-document.getElementById("rate").innerText =
-tasks.length ? Math.round(correct/tasks.length*100)+"%" : "0%";
+Object.keys(m).forEach(a=>{
+html+=`<tr><td>${a}</td>`;
+
+tests.forEach(t=>{
+let c=m[a][t];
+
+if(!c){html+=`<td>⚪</td>`;return;}
+
+let rate=Math.round(c.ok/c.total*100);
+
+let dot="🔴";
+if(rate>=70)dot="🟢";
+else if(rate>=40)dot="🟡";
+
+html+=`<td>${dot} ${rate||0}%</td>`;
+});
+
+html+=`</tr>`;
+});
+}
+
+document.getElementById("header").innerHTML=header;
+document.getElementById("table").innerHTML=html;
 
 }
+
+render();
+
+</script>
+
+</body>
+</html>
