@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pl">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Agent Dashboard PRO</title>
+<title>Panel Agentów PRO</title>
 
 <style>
 body{
@@ -11,6 +11,8 @@ body{
     margin:20px;
     background:#f4f7f6;
 }
+
+h2{margin-bottom:10px}
 
 button,input,select{
     padding:8px;
@@ -35,38 +37,45 @@ th{
     color:white;
 }
 
-.correct{color:green;font-weight:bold}
-.incorrect{color:red;font-weight:bold}
+/* 🌈 kolory statusów */
+.good{color:#1e8e3e;font-weight:bold}
+.mid{color:#f39c12;font-weight:bold}
+.bad{color:#c0392b;font-weight:bold}
+.zero{color:#7f8c8d;font-weight:bold}
 
 .card{
     background:white;
     padding:10px;
     margin-top:10px;
 }
+
+.dot{
+    font-size:16px;
+}
 </style>
 </head>
 
 <body>
 
-<h2>Agent Dashboard</h2>
+<h2>📊 Panel Agentów PRO (PL)</h2>
 
-<button onclick="viewMode='agent';render()">Agent View</button>
-<button onclick="viewMode='test';render()">Test View</button>
-<button onclick="viewMode='matrix';render()">Matrix View</button>
+<button onclick="viewMode='agent';render()">👤 Agenci</button>
+<button onclick="viewMode='test';render()">🧪 Testy</button>
+<button onclick="viewMode='matrix';render()">🟢 Macierz</button>
 
 <br>
 
 <input id="agent" placeholder="Agent">
-<input id="task" placeholder="Task">
-<input id="testNr" placeholder="Test Nr">
+<input id="task" placeholder="Zadanie">
+<input id="testNr" placeholder="Test nr (np. 1)">
 <select id="status">
 <option>Correct</option>
 <option>Incorrect</option>
 </select>
 
-<button onclick="addTask()">Add</button>
+<button onclick="addTask()">Dodaj</button>
 
-<input id="search" oninput="render()" placeholder="Search">
+<input id="search" oninput="render()" placeholder="Szukaj...">
 
 <table>
 <thead>
@@ -81,15 +90,16 @@ let tasks = JSON.parse(localStorage.getItem("tasks")) || [];
 let viewMode = "agent";
 
 function save(){
-localStorage.setItem("tasks",JSON.stringify(tasks));
+localStorage.setItem("tasks", JSON.stringify(tasks));
 }
 
 function addTask(){
+
 tasks.push({
 id:Date.now(),
-agent:agent.value,
-task:task.value,
-test:testNr.value || "1",
+agent:agent.value.trim(),
+task:task.value.trim(),
+test:testNr.value.trim() || "1",
 status:status.value
 });
 
@@ -100,6 +110,18 @@ render();
 function toggle(id){
 let el = document.getElementById(id);
 if(el) el.style.display = el.style.display==="none"?"table-row":"none";
+}
+
+function calcRate(ok,total){
+if(!total || total===0) return 0;
+return Math.round((ok/total)*100);
+}
+
+function color(rate){
+if(rate>=75) return "good";
+if(rate>=40) return "mid";
+if(rate>0) return "bad";
+return "zero";
 }
 
 function render(){
@@ -117,15 +139,14 @@ t.task.toLowerCase().includes(s)
 let html = "";
 let header = "";
 
-
-// ================= AGENT VIEW =================
+/* =========================
+👤 AGENT VIEW
+========================= */
 if(viewMode==="agent"){
 
-header = `
-<th>Agent</th><th>Total</th><th>OK</th><th>Bad</th><th>%</th>
-`;
+header = `<th>Agent</th><th>Wszystko</th><th>✔</th><th>✖</th><th>%</th>`;
 
-let g = {};
+let g={};
 
 data.forEach(t=>{
 if(!g[t.agent]) g[t.agent]={tasks:[],ok:0,bad:0};
@@ -134,15 +155,17 @@ t.status==="Correct"?g[t.agent].ok++:g[t.agent].bad++;
 });
 
 Object.keys(g).forEach(a=>{
-let total = g[a].ok+g[a].bad;
-let rate = Math.round(g[a].ok/total*100)||0;
+
+let total=g[a].ok+g[a].bad;
+let rate=calcRate(g[a].ok,total);
 
 html+=`
-<tr onclick="toggle('a-${a}')">
-<td>${a}</td><td>${total}</td>
-<td style="color:green">${g[a].ok}</td>
-<td style="color:red">${g[a].bad}</td>
-<td>${rate}%</td>
+<tr onclick="toggle('a-${a}')" style="cursor:pointer">
+<td><b>${a}</b></td>
+<td>${total}</td>
+<td style="color:#1e8e3e">${g[a].ok}</td>
+<td style="color:#c0392b">${g[a].bad}</td>
+<td class="${color(rate)}">${rate}%</td>
 </tr>
 
 <tr id="a-${a}" style="display:none">
@@ -150,18 +173,26 @@ html+=`
 `;
 
 g[a].tasks.forEach(t=>{
-html+=`<div>${t.test} - <span class="${t.status==='Correct'?'correct':'incorrect'}">${t.status}</span> ${t.task}</div>`;
+html+=`
+<div>
+🧪 Test ${t.test} -
+<span class="${t.status==='Correct'?'good':'bad'}">
+${t.status}
+</span>
+ - ${t.task}
+</div>`;
 });
 
 html+=`</td></tr>`;
 });
 }
 
-
-// ================= TEST VIEW =================
+/* =========================
+🧪 TEST VIEW
+========================= */
 if(viewMode==="test"){
 
-header = `<th>Test</th><th>Total</th><th>OK</th><th>Bad</th><th>%</th>`;
+header = `<th>Test</th><th>Razem</th><th>✔</th><th>✖</th><th>%</th>`;
 
 let g={};
 
@@ -172,15 +203,17 @@ t.status==="Correct"?g[t.test].ok++:g[t.test].bad++;
 });
 
 Object.keys(g).forEach(t=>{
+
 let total=g[t].ok+g[t].bad;
-let rate=Math.round(g[t].ok/total*100)||0;
+let rate=calcRate(g[t].ok,total);
 
 html+=`
-<tr onclick="toggle('t-${t}')">
-<td>${t}</td><td>${total}</td>
-<td style="color:green">${g[t].ok}</td>
-<td style="color:red">${g[t].bad}</td>
-<td>${rate}%</td>
+<tr onclick="toggle('t-${t}')" style="cursor:pointer">
+<td><b>Test ${t}</b></td>
+<td>${total}</td>
+<td style="color:#1e8e3e">${g[t].ok}</td>
+<td style="color:#c0392b">${g[t].bad}</td>
+<td class="${color(rate)}">${rate}%</td>
 </tr>
 
 <tr id="t-${t}" style="display:none">
@@ -188,15 +221,23 @@ html+=`
 `;
 
 g[t].tasks.forEach(x=>{
-html+=`<div>${x.agent} - ${x.task}</div>`;
+html+=`
+<div>
+👤 ${x.agent} -
+<span class="${x.status==='Correct'?'good':'bad'}">
+${x.status}
+</span>
+ - ${x.task}
+</div>`;
 });
 
 html+=`</td></tr>`;
 });
 }
 
-
-// ================= MATRIX VIEW =================
+/* =========================
+🟢 MATRIX VIEW
+========================= */
 if(viewMode==="matrix"){
 
 let m={};
@@ -209,25 +250,28 @@ m[t.agent][t.test].total++;
 if(t.status==="Correct") m[t.agent][t.test].ok++;
 });
 
-let tests=[...new Set(data.map(t=>t.test))];
+let tests=[...new Set(data.map(t=>t.test))].sort((a,b)=>a-b);
 
 header=`<th>Agent</th>`+tests.map(t=>`<th>Test ${t}</th>`).join("");
 
 Object.keys(m).forEach(a=>{
-html+=`<tr><td>${a}</td>`;
+html+=`<tr><td><b>${a}</b></td>`;
 
 tests.forEach(t=>{
 let c=m[a][t];
 
-if(!c){html+=`<td>⚪</td>`;return;}
+if(!c){
+html+=`<td class="zero">⚪ 0%</td>`;
+return;
+}
 
-let rate=Math.round(c.ok/c.total*100);
+let rate=calcRate(c.ok,c.total);
 
 let dot="🔴";
-if(rate>=70)dot="🟢";
-else if(rate>=40)dot="🟡";
+if(rate>=75) dot="🟢";
+else if(rate>=40) dot="🟡";
 
-html+=`<td>${dot} ${rate||0}%</td>`;
+html+=`<td class="${color(rate)}">${dot} ${rate}%</td>`;
 });
 
 html+=`</tr>`;
