@@ -1,172 +1,300 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Agent Task Tester</title>
-    <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            margin: 30px;
-            background-color: #f4f7f6;
-            color: #333;
-        }
-        h1 { color: #2c3e50; }
-        .form-group {
-            margin-bottom: 20px;
-            background: white;
-            padding: 15px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        input, select, button {
-            padding: 10px;
-            margin-right: 10px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            font-size: 14px;
-        }
-        button {
-            background-color: #3498db;
-            color: white;
-            border: none;
-            cursor: pointer;
-            transition: background 0.2s;
-        }
-        button:hover { background-color: #2980b9; }
-        .delete-btn { background-color: #e74c3c; }
-        .delete-btn:hover { background-color: #c0392b; }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            background: white;
-            border-radius: 8px;
-            overflow: hidden;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            margin-bottom: 20px;
-        }
-        th, td {
-            padding: 12px 15px;
-            text-align: left;
-            border-bottom: 1px solid #ddd;
-        }
-        th { background-color: #2c3e50; color: white; }
-        .status-correct { color: #27ae60; font-weight: bold; }
-        .status-incorrect { color: #c0392b; font-weight: bold; }
-        .stats-box {
-            background: #2c3e50;
-            color: white;
-            padding: 15px;
-            border-radius: 8px;
-            font-size: 18px;
-            display: inline-block;
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agent Dashboard PRO</title>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+body{
+    font-family:Segoe UI;
+    margin:20px;
+    background:#f4f7f6;
+    transition:0.3s;
+}
+
+.dark{
+    background:#1e1e1e;
+    color:white;
+}
+
+h1{margin-bottom:10px}
+
+.grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:15px;
+}
+
+.card{
+    background:white;
+    padding:15px;
+    border-radius:10px;
+    box-shadow:0 2px 6px rgba(0,0,0,0.1);
+}
+
+.dark .card{background:#2a2a2a}
+
+input,select,button{
+    padding:10px;
+    margin:5px;
+    border-radius:6px;
+    border:1px solid #ccc;
+}
+
+button{
+    background:#3498db;
+    color:white;
+    border:none;
+    cursor:pointer;
+}
+
+button:hover{background:#2980b9}
+
+.delete{background:#e74c3c}
+.delete:hover{background:#c0392b}
+
+table{
+    width:100%;
+    border-collapse:collapse;
+    margin-top:10px;
+}
+
+th,td{
+    padding:10px;
+    border-bottom:1px solid #ddd;
+}
+
+th{background:#2c3e50;color:white}
+
+.correct{color:green;font-weight:bold}
+.incorrect{color:red;font-weight:bold}
+
+.topbar{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+}
+
+.small{
+    font-size:13px;
+    opacity:0.8;
+}
+
+</style>
 </head>
+
 <body>
 
-    <h1>Agent Task Tester</h1>
+<div class="topbar">
+<h1>Agent Dashboard PRO</h1>
+<button onclick="toggleDark()">🌙 / ☀️</button>
+</div>
 
-    <div class="form-group">
-        <input type="text" id="agentName" placeholder="Agent Name" required>
-        <input type="text" id="taskName" placeholder="Task Description" required>
-        <select id="taskStatus">
-            <option value="Correct">Correct</option>
-            <option value="Incorrect">Incorrect</option>
-        </select>
-        <button onclick="addTask()">Add Task</button>
-    </div>
+<div class="grid">
 
-    <table>
-        <thead>
-            <tr>
-                <th>Agent Name</th>
-                <th>Task</th>
-                <th>Status</th>
-                <th>Action</th>
-            </tr>
-        </thead>
-        <tbody id="taskTableBody">
-            </tbody>
-    </table>
+<div class="card">
+<h3>Add Task</h3>
+<input id="agent" placeholder="Agent">
+<input id="task" placeholder="Task">
+<select id="status">
+<option>Correct</option>
+<option>Incorrect</option>
+</select>
+<button onclick="addTask()">Add</button>
+<button onclick="exportCSV()">Export CSV</button>
+</div>
 
-    <div class="stats-box">
-        Total Tasks: <span id="totalTasks">0</span> | 
-        Correct Tasks: <span id="correctTasks">0</span> | 
-        Success Rate: <span id="successPercentage">0%</span>
-    </div>
+<div class="card">
+<h3>Stats</h3>
+<div>Total: <span id="total"></span></div>
+<div>Correct: <span id="correct"></span></div>
+<div>Success: <span id="rate"></span></div>
+<canvas id="chart"></canvas>
+</div>
 
-    <script>
-        // Array to store our task objects
-        let tasks = [];
+</div>
 
-        function addTask() {
-            const agentInput = document.getElementById('agentName');
-            const taskInput = document.getElementById('taskName');
-            const statusInput = document.getElementById('taskStatus');
+<div class="card">
 
-            if (agentInput.value.trim() === '' || taskInput.value.trim() === '') {
-                alert('Please fill out both Agent Name and Task!');
-                return;
-            }
+<h3>Search / Filter</h3>
+<input id="search" oninput="render()" placeholder="Search...">
 
-            // Create a new task object
-            const newTask = {
-                id: Date.now(),
-                agent: agentInput.value,
-                task: taskInput.value,
-                status: statusInput.value
-            };
+<select onchange="setSort(this.value)">
+<option value="none">No sort</option>
+<option value="agent">Sort by agent</option>
+<option value="rate">Sort by success rate</option>
+</select>
 
-            tasks.push(newTask);
-            
-            // Reset inputs
-            agentInput.value = '';
-            taskInput.value = '';
+<table>
+<thead>
+<tr>
+<th>Agent</th>
+<th>Task</th>
+<th>Status</th>
+<th>Time</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody id="table"></tbody>
+</table>
 
-            renderTable();
-        }
+</div>
 
-        function deleteTask(id) {
-            tasks = tasks.filter(task => task.id !== id);
-            renderTable();
-        }
+<script>
 
-        function renderTable() {
-            const tbody = document.getElementById('taskTableBody');
-            tbody.innerHTML = '';
+let tasks = JSON.parse(localStorage.getItem("tasks")) || [];
+let sortMode="none";
+let chart;
 
-            let correctCount = 0;
+function save(){
+    localStorage.setItem("tasks",JSON.stringify(tasks));
+}
 
-            tasks.forEach(task => {
-                if (task.status === 'Correct') correctCount++;
+function addTask(){
+    let agent=document.getElementById("agent").value;
+    let task=document.getElementById("task").value;
+    let status=document.getElementById("status").value;
 
-                const row = document.createElement('tr');
-                
-                const statusClass = task.status === 'Correct' ? 'status-correct' : 'status-incorrect';
+    if(!agent||!task) return alert("Fill all fields");
 
-                row.innerHTML = `
-                    <td>${escapeHTML(task.agent)}</td>
-                    <td>${escapeHTML(task.task)}</td>
-                    <td class="${statusClass}">${task.status}</td>
-                    <td><button class="delete-btn" onclick="deleteTask(${task.id})">Delete</button></td>
-                `;
-                tbody.appendChild(row);
-            });
+    tasks.push({
+        id:Date.now(),
+        agent,
+        task,
+        status,
+        time:new Date().toLocaleString()
+    });
 
-            // Update stats
-            const total = tasks.length;
-            const percentage = total > 0 ? Math.round((correctCount / total) * 100) : 0;
+    save();
+    render();
+}
 
-            document.getElementById('totalTasks').innerText = total;
-            document.getElementById('correctTasks').innerText = correctCount;
-            document.getElementById('successPercentage').innerText = percentage + '%';
-        }
+function deleteTask(id){
+    tasks=tasks.filter(t=>t.id!==id);
+    save();
+    render();
+}
 
-        // Simple helper to prevent code injection issues
-        function escapeHTML(str) {
-            return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-        }
-    </script>
+function updateStatus(id,val){
+    tasks=tasks.map(t=>{
+        if(t.id===id) t.status=val;
+        return t;
+    });
+    save();
+    render();
+}
+
+function setSort(v){
+    sortMode=v;
+    render();
+}
+
+function toggleDark(){
+    document.body.classList.toggle("dark");
+}
+
+function exportCSV(){
+    let csv="Agent,Task,Status,Time\n";
+    tasks.forEach(t=>{
+        csv+=`${t.agent},${t.task},${t.status},${t.time}\n`;
+    });
+
+    let blob=new Blob([csv],{type:"text/csv"});
+    let url=URL.createObjectURL(blob);
+
+    let a=document.createElement("a");
+    a.href=url;
+    a.download="tasks.csv";
+    a.click();
+}
+
+function render(){
+
+let data=[...tasks];
+
+let s=document.getElementById("search").value.toLowerCase();
+if(s){
+    data=data.filter(t=>
+        t.agent.toLowerCase().includes(s)||
+        t.task.toLowerCase().includes(s)
+    );
+}
+
+if(sortMode==="agent"){
+    data.sort((a,b)=>a.agent.localeCompare(b.agent));
+}
+
+let stats={};
+
+let correct=0;
+
+data.forEach(t=>{
+    if(!stats[t.agent]) stats[t.agent]={c:0,t:0};
+    stats[t.agent].t++;
+    if(t.status==="Correct"){
+        stats[t.agent].c++;
+        correct++;
+    }
+});
+
+let html="";
+
+data.forEach(t=>{
+html+=`
+<tr>
+<td>${t.agent}</td>
+<td>${t.task}</td>
+<td>
+<select onchange="updateStatus(${t.id},this.value)">
+<option ${t.status==="Correct"?"selected":""}>Correct</option>
+<option ${t.status==="Incorrect"?"selected":""}>Incorrect</option>
+</select>
+</td>
+<td class="small">${t.time||""}</td>
+<td><button class="delete" onclick="deleteTask(${t.id})">X</button></td>
+</tr>
+`;
+});
+
+document.getElementById("table").innerHTML=html;
+
+document.getElementById("total").innerText=tasks.length;
+document.getElementById("correct").innerText=correct;
+document.getElementById("rate").innerText=
+tasks.length?Math.round(correct/tasks.length*100)+"%":"0%";
+
+updateChart(stats);
+
+}
+
+function updateChart(stats){
+
+let labels=Object.keys(stats);
+let values=labels.map(a=>
+Math.round((stats[a].c/stats[a].t)*100)
+);
+
+if(chart) chart.destroy();
+
+chart=new Chart(document.getElementById("chart"),{
+type:"bar",
+data:{
+labels:labels,
+datasets:[{
+label:"Success Rate %",
+data:values
+}]
+}
+});
+
+}
+
+render();
+
+</script>
+
 </body>
 </html>
