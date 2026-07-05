@@ -3,317 +3,267 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Panel Agentów PRO</title>
+<title>Agent Task Tester PRO</title>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
-
-body{
-    font-family:Segoe UI;
-    margin:20px;
-    background-image:url("https://images.unsplash.com/photo-1506015391300-4802dc74de2e");
-    background-size:cover;
-    background-position:center;
-    background-attachment:fixed;
-    color:#222;
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: linear-gradient(135deg, #1e1e2f, #2b1f1f);
+    color: white;
 }
 
-.overlay{
-    background:rgba(255,255,255,0.85);
-    padding:20px;
-    border-radius:12px;
+/* SAMOLOT TŁO */
+body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background: url('https://images.unsplash.com/photo-1506015391300-4802dc74de2e') center/cover no-repeat;
+    opacity: 0.12;
+    z-index: -1;
 }
 
-button,input,select{
-    padding:8px;
-    margin:5px;
+.container {
+    max-width: 1000px;
+    margin: auto;
+    padding: 20px;
 }
 
-table{
-    width:100%;
-    border-collapse:collapse;
-    margin-top:15px;
-    background:white;
-    border-radius:10px;
-    overflow:hidden;
+.card {
+    background: rgba(30,30,40,0.92);
+    padding: 15px;
+    border-radius: 12px;
+    margin-bottom: 15px;
 }
 
-th,td{
-    border:1px solid #ddd;
-    padding:10px;
-    text-align:left;
+button {
+    padding: 10px 14px;
+    margin: 5px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: bold;
 }
 
-th{
-    background:#2c3e50;
-    color:white;
+.correct { background: #4caf50; color: white; }
+.incorrect { background: #f44336; color: white; }
+.next { background: #ff9800; }
+.danger { background: #b71c1c; color: white; }
+
+table {
+    width: 100%;
+    border-collapse: collapse;
 }
 
-/* warm colors */
-.good{
-    color:#2e7d32;
-    background:#e8f5e9;
-    padding:3px 6px;
-    border-radius:6px;
-    font-weight:bold;
+th, td {
+    padding: 8px;
+    border-bottom: 1px solid #444;
+    text-align: center;
 }
 
-.mid{
-    color:#b26a00;
-    background:#fff3e0;
-    padding:3px 6px;
-    border-radius:6px;
-    font-weight:bold;
+h1, h2 { color: #ffcc80; }
+
+.stats {
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
 }
 
-.bad{
-    color:#c62828;
-    background:#ffebee;
-    padding:3px 6px;
-    border-radius:6px;
-    font-weight:bold;
+.statBox {
+    background: rgba(255,255,255,0.05);
+    padding: 10px;
+    border-radius: 10px;
+    margin: 5px;
+    flex: 1;
+    text-align: center;
 }
-
-.zero{
-    color:#546e7a;
-    background:#eceff1;
-    padding:3px 6px;
-    border-radius:6px;
-}
-
 </style>
 </head>
 
 <body>
+<div class="container">
 
-<div class="overlay">
+<h1>Agent Task Tester PRO</h1>
 
-<h2>Panel Agentów PRO</h2>
+<div class="card">
+    <h2 id="question">Ładowanie...</h2>
 
-<button onclick="viewMode='agent';render()">Agenci</button>
-<button onclick="viewMode='test';render()">Testy</button>
-<button onclick="viewMode='matrix';render()">Matrix</button>
+    <button class="correct" onclick="answer(true)">Correct</button>
+    <button class="incorrect" onclick="answer(false)">Incorrect</button>
+    <button class="next" onclick="nextQuestion()">Next</button>
+</div>
 
-<br>
+<div class="card stats">
+    <div class="statBox">
+        Correct<br><span id="cCount">0</span>
+    </div>
+    <div class="statBox">
+        Incorrect<br><span id="iCount">0</span>
+    </div>
+    <div class="statBox">
+        Accuracy<br><span id="acc">0%</span>
+    </div>
+    <div class="statBox">
+        Level<br><span id="lvl">1</span>
+    </div>
+</div>
 
-<input id="agent" placeholder="Agent">
-<input id="task" placeholder="Zadanie">
-<input id="testNr" placeholder="Test nr">
-<select id="status">
-<option>Correct</option>
-<option>Incorrect</option>
-</select>
+<div class="card">
+    <h2>Wykres wyników</h2>
+    <canvas id="barChart"></canvas>
+</div>
 
-<button onclick="addTask()">Dodaj</button>
+<div class="card">
+    <h2>Postęp (czas)</h2>
+    <canvas id="lineChart"></canvas>
+</div>
 
-<input id="search" oninput="render()" placeholder="Szukaj...">
-
-<table>
-<thead>
-<tr id="header"></tr>
-</thead>
-<tbody id="table"></tbody>
-</table>
+<div class="card">
+    <h2>Historia testów</h2>
+    <button class="danger" onclick="clearAll()">Usuń wszystko</button>
+    <table>
+        <thead>
+            <tr>
+                <th>Test</th>
+                <th>Correct</th>
+                <th>Incorrect</th>
+                <th>%</th>
+                <th>Usuń</th>
+            </tr>
+        </thead>
+        <tbody id="historyTable"></tbody>
+    </table>
+</div>
 
 </div>
 
 <script>
+let questions = [
+    "Czy system działa poprawnie?",
+    "Czy odpowiedź była logiczna?",
+    "Czy wynik jest zgodny?",
+    "Czy UI działa stabilnie?"
+];
 
-let tasks = JSON.parse(localStorage.getItem("tasks")) || [];
-let viewMode = "agent";
+let index = 0;
 
-function save(){
-localStorage.setItem("tasks", JSON.stringify(tasks));
-}
-
-function clean(t){
-return {
-id: t.id || Date.now(),
-agent: (t.agent||"").trim(),
-task: (t.task||"").trim(),
-test: (t.test||"1").trim(),
-status: (t.status||"Incorrect").trim()
+let data = JSON.parse(localStorage.getItem("testerData")) || {
+    correct: 0,
+    incorrect: 0,
+    history: []
 };
+
+document.getElementById("question").innerText = questions[index];
+
+function save() {
+    localStorage.setItem("testerData", JSON.stringify(data));
 }
 
-function rate(ok,total){
-ok = Number(ok) || 0;
-total = Number(total) || 0;
-if(total === 0) return 0;
-return Math.round((ok / total) * 100);
+function calcAcc() {
+    let total = data.correct + data.incorrect;
+    return total === 0 ? 0 : Math.round((data.correct / total) * 100);
 }
 
-function toggle(id){
-let el = document.getElementById(id);
-if(el) el.style.display = el.style.display === "none" ? "table-row" : "none";
+function calcLevel() {
+    return Math.floor((data.correct + data.incorrect) / 5) + 1;
 }
 
-function addTask(){
+function answer(isCorrect) {
+    if (isCorrect) data.correct++;
+    else data.incorrect++;
 
-tasks.push(clean({
-agent: agent.value,
-task: task.value,
-test: testNr.value,
-status: status.value
-}));
-
-save();
-render();
+    save();
+    updateUI();
 }
 
-function render(){
+function nextQuestion() {
+    index = (index + 1) % questions.length;
+    document.getElementById("question").innerText = questions[index];
 
-let data = tasks.map(clean);
+    data.history.push({
+        id: Date.now(),
+        correct: data.correct,
+        incorrect: data.incorrect,
+        acc: calcAcc()
+    });
 
-let s = search.value.toLowerCase();
-if(s){
-data = data.filter(t =>
-t.agent.toLowerCase().includes(s) ||
-t.task.toLowerCase().includes(s)
-);
+    save();
+    updateUI();
 }
 
-let html = "";
-let header = "";
-
-/* AGENT VIEW */
-if(viewMode === "agent"){
-
-header = `<th>Agent</th><th>Total</th><th>OK</th><th>BAD</th><th>%</th>`;
-
-let g = {};
-
-data.forEach(t=>{
-if(!g[t.agent]) g[t.agent] = {tasks:[], ok:0, bad:0};
-g[t.agent].tasks.push(t);
-t.status === "Correct" ? g[t.agent].ok++ : g[t.agent].bad++;
-});
-
-Object.keys(g).forEach(a=>{
-
-let total = g[a].ok + g[a].bad;
-let r = rate(g[a].ok, total);
-
-html += `
-<tr onclick="toggle('a-${a}')" style="cursor:pointer;background:${r>=75?'#e8f5e9':r>=40?'#fff3e0':'#ffebee'}">
-<td><b>${a}</b></td>
-<td>${total}</td>
-<td>${g[a].ok}</td>
-<td>${g[a].bad}</td>
-<td>${r}%</td>
-</tr>
-
-<tr id="a-${a}" style="display:none">
-<td colspan="5">
-`;
-
-g[a].tasks.forEach(t=>{
-html += `
-<div>
-Test ${t.test} -
-<span class="${t.status==='Correct'?'good':'bad'}">
-${t.status}
-</span>
- ${t.task}
-</div>`;
-});
-
-html += `</td></tr>`;
-});
+function deleteItem(id) {
+    data.history = data.history.filter(h => h.id !== id);
+    save();
+    updateUI();
 }
 
-/* TEST VIEW */
-if(viewMode === "test"){
-
-header = `<th>Test</th><th>Total</th><th>OK</th><th>BAD</th><th>%</th>`;
-
-let g = {};
-
-data.forEach(t=>{
-if(!g[t.test]) g[t.test] = {tasks:[], ok:0, bad:0};
-g[t.test].tasks.push(t);
-t.status === "Correct" ? g[t.test].ok++ : g[t.test].bad++;
-});
-
-Object.keys(g).forEach(t=>{
-
-let total = g[t].ok + g[t].bad;
-let r = rate(g[t].ok, total);
-
-html += `
-<tr onclick="toggle('t-${t}')" style="cursor:pointer;background:${r>=75?'#e8f5e9':r>=40?'#fff3e0':'#ffebee'}">
-<td><b>Test ${t}</b></td>
-<td>${total}</td>
-<td>${g[t].ok}</td>
-<td>${g[t].bad}</td>
-<td>${r}%</td>
-</tr>
-
-<tr id="t-${t}" style="display:none">
-<td colspan="5">
-`;
-
-g[t].tasks.forEach(x=>{
-html += `
-<div>
-${x.agent} -
-<span class="${x.status==='Correct'?'good':'bad'}">
-${x.status}
-</span>
- ${x.task}
-</div>`;
-});
-
-html += `</td></tr>`;
-});
+function clearAll() {
+    data = { correct: 0, incorrect: 0, history: [] };
+    save();
+    updateUI();
 }
 
-/* MATRIX VIEW */
-if(viewMode === "matrix"){
+function updateUI() {
+    document.getElementById("cCount").innerText = data.correct;
+    document.getElementById("iCount").innerText = data.incorrect;
+    document.getElementById("acc").innerText = calcAcc() + "%";
+    document.getElementById("lvl").innerText = calcLevel();
 
-let m = {};
-
-data.forEach(t=>{
-if(!m[t.agent]) m[t.agent] = {};
-if(!m[t.agent][t.test]) m[t.agent][t.test] = {ok:0,total:0};
-
-m[t.agent][t.test].total++;
-if(t.status === "Correct") m[t.agent][t.test].ok++;
-});
-
-let tests = [...new Set(data.map(t=>t.test))].sort();
-
-header = `<th>Agent</th>` + tests.map(t=>`<th>Test ${t}</th>`).join("");
-
-Object.keys(m).forEach(a=>{
-html += `<tr><td><b>${a}</b></td>`;
-
-tests.forEach(t=>{
-let c = m[a][t];
-if(!c){
-html += `<td>0%</td>`;
-return;
+    renderTable();
+    renderCharts();
 }
 
-let r = rate(c.ok, c.total);
+function renderTable() {
+    let tbody = document.getElementById("historyTable");
+    tbody.innerHTML = "";
 
-let dot = "red";
-if(r >= 75) dot = "green";
-else if(r >= 40) dot = "orange";
-
-html += `<td>${dot} ${r}%</td>`;
-});
-
-html += `</tr>`;
-});
+    data.history.forEach(h => {
+        let row = `<tr>
+            <td>${h.id}</td>
+            <td>${h.correct}</td>
+            <td>${h.incorrect}</td>
+            <td>${h.acc}%</td>
+            <td><button class="danger" onclick="deleteItem(${h.id})">X</button></td>
+        </tr>`;
+        tbody.innerHTML += row;
+    });
 }
 
-document.getElementById("header").innerHTML = header;
-document.getElementById("table").innerHTML = html;
+/* WYKRESY */
+let barChart, lineChart;
 
+function renderCharts() {
+    if (barChart) barChart.destroy();
+    if (lineChart) lineChart.destroy();
+
+    barChart = new Chart(document.getElementById("barChart"), {
+        type: "bar",
+        data: {
+            labels: ["Correct", "Incorrect"],
+            datasets: [{
+                data: [data.correct, data.incorrect],
+                backgroundColor: ["#4caf50", "#f44336"]
+            }]
+        }
+    });
+
+    lineChart = new Chart(document.getElementById("lineChart"), {
+        type: "line",
+        data: {
+            labels: data.history.map((_, i) => "Test " + (i+1)),
+            datasets: [{
+                label: "Accuracy %",
+                data: data.history.map(h => h.acc),
+                borderColor: "#ffcc80",
+                fill: false
+            }]
+        }
+    });
 }
 
-render();
-
+updateUI();
 </script>
 
 </body>
