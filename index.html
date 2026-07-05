@@ -15,7 +15,6 @@ body {
     color: white;
 }
 
-/* SAMOLOT TŁO */
 body::before {
     content: "";
     position: fixed;
@@ -47,8 +46,8 @@ button {
     font-weight: bold;
 }
 
-.correct { background: #4caf50; color: white; }
-.incorrect { background: #f44336; color: white; }
+.ok { background: #4caf50; color: white; }
+.bad { background: #f44336; color: white; }
 .next { background: #ff9800; }
 .danger { background: #b71c1c; color: white; }
 
@@ -62,23 +61,6 @@ th, td {
     border-bottom: 1px solid #444;
     text-align: center;
 }
-
-h1, h2 { color: #ffcc80; }
-
-.stats {
-    display: flex;
-    justify-content: space-between;
-    flex-wrap: wrap;
-}
-
-.statBox {
-    background: rgba(255,255,255,0.05);
-    padding: 10px;
-    border-radius: 10px;
-    margin: 5px;
-    flex: 1;
-    text-align: center;
-}
 </style>
 </head>
 
@@ -88,157 +70,117 @@ h1, h2 { color: #ffcc80; }
 <h1>Agent Task Tester PRO</h1>
 
 <div class="card">
-    <h2 id="question">Ładowanie...</h2>
+    <h2 id="question"></h2>
 
-    <button class="correct" onclick="answer(true)">Correct</button>
-    <button class="incorrect" onclick="answer(false)">Incorrect</button>
-    <button class="next" onclick="nextQuestion()">Next</button>
-</div>
-
-<div class="card stats">
-    <div class="statBox">
-        Correct<br><span id="cCount">0</span>
-    </div>
-    <div class="statBox">
-        Incorrect<br><span id="iCount">0</span>
-    </div>
-    <div class="statBox">
-        Accuracy<br><span id="acc">0%</span>
-    </div>
-    <div class="statBox">
-        Level<br><span id="lvl">1</span>
-    </div>
+    <button class="ok" onclick="mark('correct')">OK / CORRECT</button>
+    <button class="bad" onclick="mark('incorrect')">BAD / INCORRECT</button>
+    <button class="next" onclick="nextQuestion()">NEXT</button>
 </div>
 
 <div class="card">
-    <h2>Wykres wyników</h2>
-    <canvas id="barChart"></canvas>
+    <h3>Stats</h3>
+    <p>Correct: <span id="c"></span></p>
+    <p>Incorrect: <span id="i"></span></p>
+    <p>Accuracy: <span id="a"></span>%</p>
+    <p>Level: <span id="l"></span></p>
 </div>
 
 <div class="card">
-    <h2>Postęp (czas)</h2>
-    <canvas id="lineChart"></canvas>
+    <h3>Wykres</h3>
+    <canvas id="chart1"></canvas>
 </div>
 
 <div class="card">
-    <h2>Historia testów</h2>
-    <button class="danger" onclick="clearAll()">Usuń wszystko</button>
+    <h3>Historia</h3>
+    <button class="danger" onclick="clearAll()">USUŃ WSZYSTKO</button>
     <table>
         <thead>
             <tr>
-                <th>Test</th>
+                <th>ID</th>
                 <th>Correct</th>
                 <th>Incorrect</th>
                 <th>%</th>
-                <th>Usuń</th>
+                <th>Delete</th>
             </tr>
         </thead>
-        <tbody id="historyTable"></tbody>
+        <tbody id="history"></tbody>
     </table>
 </div>
 
 </div>
 
 <script>
-let questions = [
+const questions = [
     "Czy system działa poprawnie?",
-    "Czy odpowiedź była logiczna?",
-    "Czy wynik jest zgodny?",
+    "Czy odpowiedź jest logiczna?",
+    "Czy wynik się zgadza?",
     "Czy UI działa stabilnie?"
 ];
 
-let index = 0;
+let qIndex = 0;
 
-let data = JSON.parse(localStorage.getItem("testerData")) || {
+let data = JSON.parse(localStorage.getItem("data")) || {
     correct: 0,
     incorrect: 0,
     history: []
 };
 
-document.getElementById("question").innerText = questions[index];
+document.getElementById("question").innerText = questions[qIndex];
 
 function save() {
-    localStorage.setItem("testerData", JSON.stringify(data));
+    localStorage.setItem("data", JSON.stringify(data));
 }
 
-function calcAcc() {
-    let total = data.correct + data.incorrect;
-    return total === 0 ? 0 : Math.round((data.correct / total) * 100);
+function accuracy() {
+    let t = data.correct + data.incorrect;
+    return t === 0 ? 0 : Math.round((data.correct / t) * 100);
 }
 
-function calcLevel() {
+function level() {
     return Math.floor((data.correct + data.incorrect) / 5) + 1;
 }
 
-function answer(isCorrect) {
-    if (isCorrect) data.correct++;
-    else data.incorrect++;
+function mark(type) {
+    if (type === "correct") data.correct++;
+    if (type === "incorrect") data.incorrect++;
 
     save();
-    updateUI();
+    update();
 }
 
 function nextQuestion() {
-    index = (index + 1) % questions.length;
-    document.getElementById("question").innerText = questions[index];
+    qIndex = (qIndex + 1) % questions.length;
+    document.getElementById("question").innerText = questions[qIndex];
 
     data.history.push({
         id: Date.now(),
         correct: data.correct,
         incorrect: data.incorrect,
-        acc: calcAcc()
+        acc: accuracy()
     });
 
     save();
-    updateUI();
+    update();
 }
 
 function deleteItem(id) {
-    data.history = data.history.filter(h => h.id !== id);
+    data.history = data.history.filter(x => x.id !== id);
     save();
-    updateUI();
+    update();
 }
 
 function clearAll() {
     data = { correct: 0, incorrect: 0, history: [] };
     save();
-    updateUI();
+    update();
 }
 
-function updateUI() {
-    document.getElementById("cCount").innerText = data.correct;
-    document.getElementById("iCount").innerText = data.incorrect;
-    document.getElementById("acc").innerText = calcAcc() + "%";
-    document.getElementById("lvl").innerText = calcLevel();
+let chart;
 
-    renderTable();
-    renderCharts();
-}
+function updateChart() {
+    if (chart) chart.destroy();
 
-function renderTable() {
-    let tbody = document.getElementById("historyTable");
-    tbody.innerHTML = "";
-
-    data.history.forEach(h => {
-        let row = `<tr>
-            <td>${h.id}</td>
-            <td>${h.correct}</td>
-            <td>${h.incorrect}</td>
-            <td>${h.acc}%</td>
-            <td><button class="danger" onclick="deleteItem(${h.id})">X</button></td>
-        </tr>`;
-        tbody.innerHTML += row;
-    });
-}
-
-/* WYKRESY */
-let barChart, lineChart;
-
-function renderCharts() {
-    if (barChart) barChart.destroy();
-    if (lineChart) lineChart.destroy();
-
-    barChart = new Chart(document.getElementById("barChart"), {
+    chart = new Chart(document.getElementById("chart1"), {
         type: "bar",
         data: {
             labels: ["Correct", "Incorrect"],
@@ -248,22 +190,39 @@ function renderCharts() {
             }]
         }
     });
-
-    lineChart = new Chart(document.getElementById("lineChart"), {
-        type: "line",
-        data: {
-            labels: data.history.map((_, i) => "Test " + (i+1)),
-            datasets: [{
-                label: "Accuracy %",
-                data: data.history.map(h => h.acc),
-                borderColor: "#ffcc80",
-                fill: false
-            }]
-        }
-    });
 }
 
-updateUI();
+function updateTable() {
+    let html = "";
+
+    data.history.forEach(h => {
+        html += `
+        <tr>
+            <td>${h.id}</td>
+            <td>${h.correct}</td>
+            <td>${h.incorrect}</td>
+            <td>${h.acc}%</td>
+            <td><button class="danger" onclick="deleteItem(${h.id})">X</button></td>
+        </tr>`;
+    });
+
+    document.getElementById("history").innerHTML = html;
+}
+
+function updateStats() {
+    document.getElementById("c").innerText = data.correct;
+    document.getElementById("i").innerText = data.incorrect;
+    document.getElementById("a").innerText = accuracy();
+    document.getElementById("l").innerText = level();
+}
+
+function update() {
+    updateStats();
+    updateTable();
+    updateChart();
+}
+
+update();
 </script>
 
 </body>
