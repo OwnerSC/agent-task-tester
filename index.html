@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent Task Tester</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 30px;
+            background-color: #f4f7f6;
+            color: #333;
+        }
+        h1 { color: #2c3e50; }
+        .form-group {
+            margin-bottom: 20px;
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        input, select, button {
+            padding: 10px;
+            margin-right: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        button:hover { background-color: #2980b9; }
+        .delete-btn { background-color: #e74c3c; }
+        .delete-btn:hover { background-color: #c0392b; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        th, td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th { background-color: #2c3e50; color: white; }
+        .status-correct { color: #27ae60; font-weight: bold; }
+        .status-incorrect { color: #c0392b; font-weight: bold; }
+        .stats-box {
+            background: #2c3e50;
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 18px;
+            display: inline-block;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Agent Task Tester</h1>
+
+    <div class="form-group">
+        <input type="text" id="agentName" placeholder="Agent Name" required>
+        <input type="text" id="taskName" placeholder="Task Description" required>
+        <select id="taskStatus">
+            <option value="Correct">Correct</option>
+            <option value="Incorrect">Incorrect</option>
+        </select>
+        <button onclick="addTask()">Add Task</button>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Agent Name</th>
+                <th>Task</th>
+                <th>Status</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody id="taskTableBody">
+            </tbody>
+    </table>
+
+    <div class="stats-box">
+        Total Tasks: <span id="totalTasks">0</span> | 
+        Correct Tasks: <span id="correctTasks">0</span> | 
+        Success Rate: <span id="successPercentage">0%</span>
+    </div>
+
+    <script>
+        // Array to store our task objects
+        let tasks = [];
+
+        function addTask() {
+            const agentInput = document.getElementById('agentName');
+            const taskInput = document.getElementById('taskName');
+            const statusInput = document.getElementById('taskStatus');
+
+            if (agentInput.value.trim() === '' || taskInput.value.trim() === '') {
+                alert('Please fill out both Agent Name and Task!');
+                return;
+            }
+
+            // Create a new task object
+            const newTask = {
+                id: Date.now(),
+                agent: agentInput.value,
+                task: taskInput.value,
+                status: statusInput.value
+            };
+
+            tasks.push(newTask);
+            
+            // Reset inputs
+            agentInput.value = '';
+            taskInput.value = '';
+
+            renderTable();
+        }
+
+        function deleteTask(id) {
+            tasks = tasks.filter(task => task.id !== id);
+            renderTable();
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById('taskTableBody');
+            tbody.innerHTML = '';
+
+            let correctCount = 0;
+
+            tasks.forEach(task => {
+                if (task.status === 'Correct') correctCount++;
+
+                const row = document.createElement('tr');
+                
+                const statusClass = task.status === 'Correct' ? 'status-correct' : 'status-incorrect';
+
+                row.innerHTML = `
+                    <td>${escapeHTML(task.agent)}</td>
+                    <td>${escapeHTML(task.task)}</td>
+                    <td class="${statusClass}">${task.status}</td>
+                    <td><button class="delete-btn" onclick="deleteTask(${task.id})">Delete</button></td>
+                `;
+                tbody.appendChild(row);
+            });
+
+            // Update stats
+            const total = tasks.length;
+            const percentage = total > 0 ? Math.round((correctCount / total) * 100) : 0;
+
+            document.getElementById('totalTasks').innerText = total;
+            document.getElementById('correctTasks').innerText = correctCount;
+            document.getElementById('successPercentage').innerText = percentage + '%';
+        }
+
+        // Simple helper to prevent code injection issues
+        function escapeHTML(str) {
+            return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        }
+    </script>
+</body>
+</html>
