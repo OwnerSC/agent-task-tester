@@ -1,300 +1,84 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Agent Dashboard PRO</title>
-
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-<style>
-body{
-    font-family:Segoe UI;
-    margin:20px;
-    background:#f4f7f6;
-    transition:0.3s;
-}
-
-.dark{
-    background:#1e1e1e;
-    color:white;
-}
-
-h1{margin-bottom:10px}
-
-.grid{
-    display:grid;
-    grid-template-columns:1fr 1fr;
-    gap:15px;
-}
-
-.card{
-    background:white;
-    padding:15px;
-    border-radius:10px;
-    box-shadow:0 2px 6px rgba(0,0,0,0.1);
-}
-
-.dark .card{background:#2a2a2a}
-
-input,select,button{
-    padding:10px;
-    margin:5px;
-    border-radius:6px;
-    border:1px solid #ccc;
-}
-
-button{
-    background:#3498db;
-    color:white;
-    border:none;
-    cursor:pointer;
-}
-
-button:hover{background:#2980b9}
-
-.delete{background:#e74c3c}
-.delete:hover{background:#c0392b}
-
-table{
-    width:100%;
-    border-collapse:collapse;
-    margin-top:10px;
-}
-
-th,td{
-    padding:10px;
-    border-bottom:1px solid #ddd;
-}
-
-th{background:#2c3e50;color:white}
-
-.correct{color:green;font-weight:bold}
-.incorrect{color:red;font-weight:bold}
-
-.topbar{
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
-}
-
-.small{
-    font-size:13px;
-    opacity:0.8;
-}
-
-</style>
-</head>
-
-<body>
-
-<div class="topbar">
-<h1>Agent Dashboard PRO</h1>
-<button onclick="toggleDark()">🌙 / ☀️</button>
-</div>
-
-<div class="grid">
-
-<div class="card">
-<h3>Add Task</h3>
-<input id="agent" placeholder="Agent">
-<input id="task" placeholder="Task">
-<select id="status">
-<option>Correct</option>
-<option>Incorrect</option>
-</select>
-<button onclick="addTask()">Add</button>
-<button onclick="exportCSV()">Export CSV</button>
-</div>
-
-<div class="card">
-<h3>Stats</h3>
-<div>Total: <span id="total"></span></div>
-<div>Correct: <span id="correct"></span></div>
-<div>Success: <span id="rate"></span></div>
-<canvas id="chart"></canvas>
-</div>
-
-</div>
-
-<div class="card">
-
-<h3>Search / Filter</h3>
-<input id="search" oninput="render()" placeholder="Search...">
-
-<select onchange="setSort(this.value)">
-<option value="none">No sort</option>
-<option value="agent">Sort by agent</option>
-<option value="rate">Sort by success rate</option>
-</select>
-
-<table>
-<thead>
-<tr>
-<th>Agent</th>
-<th>Task</th>
-<th>Status</th>
-<th>Time</th>
-<th>Action</th>
-</tr>
-</thead>
-<tbody id="table"></tbody>
-</table>
-
-</div>
-
-<script>
-
-let tasks = JSON.parse(localStorage.getItem("tasks")) || [];
-let sortMode="none";
-let chart;
-
-function save(){
-    localStorage.setItem("tasks",JSON.stringify(tasks));
-}
-
-function addTask(){
-    let agent=document.getElementById("agent").value;
-    let task=document.getElementById("task").value;
-    let status=document.getElementById("status").value;
-
-    if(!agent||!task) return alert("Fill all fields");
-
-    tasks.push({
-        id:Date.now(),
-        agent,
-        task,
-        status,
-        time:new Date().toLocaleString()
-    });
-
-    save();
-    render();
-}
-
-function deleteTask(id){
-    tasks=tasks.filter(t=>t.id!==id);
-    save();
-    render();
-}
-
-function updateStatus(id,val){
-    tasks=tasks.map(t=>{
-        if(t.id===id) t.status=val;
-        return t;
-    });
-    save();
-    render();
-}
-
-function setSort(v){
-    sortMode=v;
-    render();
-}
-
-function toggleDark(){
-    document.body.classList.toggle("dark");
-}
-
-function exportCSV(){
-    let csv="Agent,Task,Status,Time\n";
-    tasks.forEach(t=>{
-        csv+=`${t.agent},${t.task},${t.status},${t.time}\n`;
-    });
-
-    let blob=new Blob([csv],{type:"text/csv"});
-    let url=URL.createObjectURL(blob);
-
-    let a=document.createElement("a");
-    a.href=url;
-    a.download="tasks.csv";
-    a.click();
-}
-
 function render(){
 
-let data=[...tasks];
+let search = document.getElementById("search").value.toLowerCase();
 
-let s=document.getElementById("search").value.toLowerCase();
-if(s){
-    data=data.filter(t=>
-        t.agent.toLowerCase().includes(s)||
-        t.task.toLowerCase().includes(s)
+let data = [...tasks];
+
+if(search){
+    data = data.filter(t =>
+        t.agent.toLowerCase().includes(search) ||
+        t.task.toLowerCase().includes(search)
     );
 }
 
-if(sortMode==="agent"){
-    data.sort((a,b)=>a.agent.localeCompare(b.agent));
-}
+// GROUP BY AGENT
+let grouped = {};
 
-let stats={};
-
-let correct=0;
-
-data.forEach(t=>{
-    if(!stats[t.agent]) stats[t.agent]={c:0,t:0};
-    stats[t.agent].t++;
-    if(t.status==="Correct"){
-        stats[t.agent].c++;
-        correct++;
+data.forEach(t => {
+    if(!grouped[t.agent]){
+        grouped[t.agent] = {
+            agent: t.agent,
+            tasks: [],
+            correct: 0,
+            incorrect: 0
+        };
     }
+
+    grouped[t.agent].tasks.push(t);
+
+    if(t.status === "Correct") grouped[t.agent].correct++;
+    else grouped[t.agent].incorrect++;
 });
 
-let html="";
+// SORT ranking (best agents first)
+let agents = Object.values(grouped).sort((a,b) =>
+    (b.correct / (b.correct + b.incorrect)) -
+    (a.correct / (a.correct + a.incorrect))
+);
 
-data.forEach(t=>{
-html+=`
-<tr>
-<td>${t.agent}</td>
-<td>${t.task}</td>
-<td>
-<select onchange="updateStatus(${t.id},this.value)">
-<option ${t.status==="Correct"?"selected":""}>Correct</option>
-<option ${t.status==="Incorrect"?"selected":""}>Incorrect</option>
-</select>
-</td>
-<td class="small">${t.time||""}</td>
-<td><button class="delete" onclick="deleteTask(${t.id})">X</button></td>
+let html = "";
+
+agents.forEach((g, index) => {
+
+let total = g.correct + g.incorrect;
+let rate = total ? Math.round((g.correct / total) * 100) : 0;
+
+html += `
+<tr onclick="toggle('${g.agent}')"
+    style="cursor:pointer;background:${rate>70?'#e8f8e8':rate<40?'#fdeaea':''}">
+<td><b>#${index+1} ${g.agent}</b></td>
+<td>${total}</td>
+<td style="color:green">${g.correct}</td>
+<td style="color:red">${g.incorrect}</td>
+<td><b>${rate}%</b></td>
 </tr>
+
+<tr id="row-${g.agent}" style="display:none">
+<td colspan="5">
+`;
+
+g.tasks.forEach(t => {
+html += `
+<div style="padding:5px;border-bottom:1px solid #eee">
+<span class="${t.status==='Correct'?'correct':'incorrect'}">
+${t.status}
+</span>
+ - ${t.task}
+</div>
 `;
 });
 
-document.getElementById("table").innerHTML=html;
-
-document.getElementById("total").innerText=tasks.length;
-document.getElementById("correct").innerText=correct;
-document.getElementById("rate").innerText=
-tasks.length?Math.round(correct/tasks.length*100)+"%":"0%";
-
-updateChart(stats);
-
-}
-
-function updateChart(stats){
-
-let labels=Object.keys(stats);
-let values=labels.map(a=>
-Math.round((stats[a].c/stats[a].t)*100)
-);
-
-if(chart) chart.destroy();
-
-chart=new Chart(document.getElementById("chart"),{
-type:"bar",
-data:{
-labels:labels,
-datasets:[{
-label:"Success Rate %",
-data:values
-}]
-}
+html += `</td></tr>`;
 });
 
+document.getElementById("table").innerHTML = html;
+
+// stats
+document.getElementById("total").innerText = tasks.length;
+
+let correct = tasks.filter(t=>t.status==="Correct").length;
+document.getElementById("correct").innerText = correct;
+document.getElementById("rate").innerText =
+tasks.length ? Math.round(correct/tasks.length*100)+"%" : "0%";
+
 }
-
-render();
-
-</script>
-
-</body>
-</html>
