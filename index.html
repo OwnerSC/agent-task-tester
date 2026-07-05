@@ -6,24 +6,39 @@
 <title>Panel Agentów PRO</title>
 
 <style>
+
+/* ✈️ TŁO SAMOLOT */
 body{
     font-family:Segoe UI;
     margin:20px;
-    background:#f4f7f6;
+    background-image:url("https://images.unsplash.com/photo-1506015391300-4802dc74de2e");
+    background-size:cover;
+    background-position:center;
+    background-attachment:fixed;
+    color:#222;
 }
 
-h2{margin-bottom:10px}
+/* 🔳 CIEMNA WARSTWA DLA CZYTELNOŚCI */
+.overlay{
+    background:rgba(255,255,255,0.85);
+    padding:20px;
+    border-radius:12px;
+}
 
+/* BUTTONY */
 button,input,select{
     padding:8px;
     margin:5px;
 }
 
+/* TABELA */
 table{
     width:100%;
     border-collapse:collapse;
     margin-top:15px;
     background:white;
+    border-radius:10px;
+    overflow:hidden;
 }
 
 th,td{
@@ -37,37 +52,56 @@ th{
     color:white;
 }
 
-/* 🌈 kolory statusów */
-.good{color:#1e8e3e;font-weight:bold}
-.mid{color:#f39c12;font-weight:bold}
-.bad{color:#c0392b;font-weight:bold}
-.zero{color:#7f8c8d;font-weight:bold}
-
-.card{
-    background:white;
-    padding:10px;
-    margin-top:10px;
+/* 🌈 CIEPŁE KOLORY */
+.good{
+    color:#2e7d32;
+    background:#e8f5e9;
+    padding:3px 6px;
+    border-radius:6px;
+    font-weight:bold;
 }
 
-.dot{
-    font-size:16px;
+.mid{
+    color:#b26a00;
+    background:#fff3e0;
+    padding:3px 6px;
+    border-radius:6px;
+    font-weight:bold;
 }
+
+.bad{
+    color:#c62828;
+    background:#ffebee;
+    padding:3px 6px;
+    border-radius:6px;
+    font-weight:bold;
+}
+
+.zero{
+    color:#546e7a;
+    background:#eceff1;
+    padding:3px 6px;
+    border-radius:6px;
+}
+
 </style>
 </head>
 
 <body>
 
-<h2>📊 Panel Agentów PRO (PL)</h2>
+<div class="overlay">
 
-<button onclick="viewMode='agent';render()">👤 Agenci</button>
-<button onclick="viewMode='test';render()">🧪 Testy</button>
-<button onclick="viewMode='matrix';render()">🟢 Macierz</button>
+<h2>✈️ Panel Agentów PRO</h2>
+
+<button onclick="viewMode='agent';render()">Agenci</button>
+<button onclick="viewMode='test';render()">Testy</button>
+<button onclick="viewMode='matrix';render()">Matrix</button>
 
 <br>
 
 <input id="agent" placeholder="Agent">
 <input id="task" placeholder="Zadanie">
-<input id="testNr" placeholder="Test nr (np. 1)">
+<input id="testNr" placeholder="Test nr">
 <select id="status">
 <option>Correct</option>
 <option>Incorrect</option>
@@ -84,67 +118,76 @@ th{
 <tbody id="table"></tbody>
 </table>
 
+</div>
+
 <script>
 
 let tasks = JSON.parse(localStorage.getItem("tasks")) || [];
 let viewMode = "agent";
 
+/* SAVE */
 function save(){
 localStorage.setItem("tasks", JSON.stringify(tasks));
 }
 
-function addTask(){
+/* CLEAN DATA */
+function clean(t){
+return {
+id: t.id || Date.now(),
+agent: (t.agent||"").trim(),
+task: (t.task||"").trim(),
+test: (t.test||"1").trim(),
+status: (t.status||"Incorrect").trim()
+};
+}
 
-tasks.push({
-id:Date.now(),
-agent:agent.value.trim(),
-task:task.value.trim(),
-test:testNr.value.trim() || "1",
+/* RATE FIX */
+function rate(ok,total){
+ok=Number(ok)||0;
+total=Number(total)||0;
+if(total===0) return 0;
+return Math.round((ok/total)*100);
+}
+
+/* TOGGLE */
+function toggle(id){
+let el=document.getElementById(id);
+if(el) el.style.display=el.style.display==="none"?"table-row":"none";
+}
+
+/* ADD */
+function addTask(){
+tasks.push(clean({
+agent:agent.value,
+task:task.value,
+test:testNr.value,
 status:status.value
-});
+}));
 
 save();
 render();
 }
 
-function toggle(id){
-let el = document.getElementById(id);
-if(el) el.style.display = el.style.display==="none"?"table-row":"none";
-}
-
-function calcRate(ok,total){
-if(!total || total===0) return 0;
-return Math.round((ok/total)*100);
-}
-
-function color(rate){
-if(rate>=75) return "good";
-if(rate>=40) return "mid";
-if(rate>0) return "bad";
-return "zero";
-}
-
+/* RENDER */
 function render(){
 
-let data = [...tasks];
+let data=tasks.map(clean);
 
-let s = search.value.toLowerCase();
+let s=search.value.toLowerCase();
 if(s){
-data = data.filter(t =>
-t.agent.toLowerCase().includes(s) ||
+data=data.filter(t=>
+t.agent.toLowerCase().includes(s)||
 t.task.toLowerCase().includes(s)
 );
 }
 
-let html = "";
-let header = "";
+let html="";
+let header="";
 
-/* =========================
-👤 AGENT VIEW
-========================= */
+/* ================= AGENT ================= */
 if(viewMode==="agent"){
 
-header = `<th>Agent</th><th>Wszystko</th><th>✔</th><th>✖</th><th>%</th>`;
+header=`<th>Agent</th><th>Razem</th><th>✔</th><th>✖</th><th>%</th>`;
 
 let g={};
 
@@ -157,15 +200,16 @@ t.status==="Correct"?g[t.agent].ok++:g[t.agent].bad++;
 Object.keys(g).forEach(a=>{
 
 let total=g[a].ok+g[a].bad;
-let rate=calcRate(g[a].ok,total);
+let r=rate(g[a].ok,total);
 
 html+=`
-<tr onclick="toggle('a-${a}')" style="cursor:pointer">
+<tr onclick="toggle('a-${a}')" style="cursor:pointer;
+background:${r>=75?'#e8f5e9':r>=40?'#fff3e0':'#ffebee'}">
 <td><b>${a}</b></td>
 <td>${total}</td>
-<td style="color:#1e8e3e">${g[a].ok}</td>
-<td style="color:#c0392b">${g[a].bad}</td>
-<td class="${color(rate)}">${rate}%</td>
+<td>${g[a].ok}</td>
+<td>${g[a].bad}</td>
+<td>${r}%</td>
 </tr>
 
 <tr id="a-${a}" style="display:none">
@@ -179,7 +223,7 @@ html+=`
 <span class="${t.status==='Correct'?'good':'bad'}">
 ${t.status}
 </span>
- - ${t.task}
+ ${t.task}
 </div>`;
 });
 
@@ -187,12 +231,10 @@ html+=`</td></tr>`;
 });
 }
 
-/* =========================
-🧪 TEST VIEW
-========================= */
+/* ================= TEST ================= */
 if(viewMode==="test"){
 
-header = `<th>Test</th><th>Razem</th><th>✔</th><th>✖</th><th>%</th>`;
+header=`<th>Test</th><th>Razem</th><th>✔</th><th>✖</th><th>%</th>`;
 
 let g={};
 
@@ -205,15 +247,16 @@ t.status==="Correct"?g[t.test].ok++:g[t.test].bad++;
 Object.keys(g).forEach(t=>{
 
 let total=g[t].ok+g[t].bad;
-let rate=calcRate(g[t].ok,total);
+let r=rate(g[t].ok,total);
 
 html+=`
-<tr onclick="toggle('t-${t}')" style="cursor:pointer">
+<tr onclick="toggle('t-${t}')" style="cursor:pointer;
+background:${r>=75?'#e8f5e9':r>=40?'#fff3e0':'#ffebee'}">
 <td><b>Test ${t}</b></td>
 <td>${total}</td>
-<td style="color:#1e8e3e">${g[t].ok}</td>
-<td style="color:#c0392b">${g[t].bad}</td>
-<td class="${color(rate)}">${rate}%</td>
+<td>${g[t].ok}</td>
+<td>${g[t].bad}</td>
+<td>${r}%</td>
 </tr>
 
 <tr id="t-${t}" style="display:none">
@@ -227,7 +270,7 @@ html+=`
 <span class="${x.status==='Correct'?'good':'bad'}">
 ${x.status}
 </span>
- - ${x.task}
+ ${x.task}
 </div>`;
 });
 
@@ -235,9 +278,7 @@ html+=`</td></tr>`;
 });
 }
 
-/* =========================
-🟢 MATRIX VIEW
-========================= */
+/* ================= MATRIX ================= */
 if(viewMode==="matrix"){
 
 let m={};
@@ -250,7 +291,7 @@ m[t.agent][t.test].total++;
 if(t.status==="Correct") m[t.agent][t.test].ok++;
 });
 
-let tests=[...new Set(data.map(t=>t.test))].sort((a,b)=>a-b);
+let tests=[...new Set(data.map(t=>t.test))].sort();
 
 header=`<th>Agent</th>`+tests.map(t=>`<th>Test ${t}</th>`).join("");
 
@@ -259,25 +300,25 @@ html+=`<tr><td><b>${a}</b></td>`;
 
 tests.forEach(t=>{
 let c=m[a][t];
-
 if(!c){
 html+=`<td class="zero">⚪ 0%</td>`;
 return;
 }
 
-let rate=calcRate(c.ok,c.total);
+let r=rate(c.ok,c.total);
 
 let dot="🔴";
-if(rate>=75) dot="🟢";
-else if(rate>=40) dot="🟡";
+if(r>=75) dot="🟢";
+else if(r>=40) dot="🟡";
 
-html+=`<td class="${color(rate)}">${dot} ${rate}%</td>`;
+html+=`<td>${dot} ${r}%</td>`;
 });
 
 html+=`</tr>`;
 });
 }
 
+/* OUTPUT */
 document.getElementById("header").innerHTML=header;
 document.getElementById("table").innerHTML=html;
 
